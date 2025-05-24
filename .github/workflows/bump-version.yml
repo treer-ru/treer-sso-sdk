@@ -1,0 +1,132 @@
+name: 更新版本号
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: '版本更新类型'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      custom_version:
+        description: '自定义版本号 (可选，如：1.2.3)'
+        required: false
+        type: string
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    
+    - name: 设置Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: 安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install bump2version
+    
+    - name: 配置Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: 获取当前版本
+      id: current_version
+      run: |
+        current_version=$(python -c "import configparser; c=configparser.ConfigParser(); c.read('pyproject.toml'); print(c.get('project', 'version').strip('\"'))")
+        echo "current_version=$current_version" >> $GITHUB_OUTPUT
+    
+    - name: 更新版本号 (自定义)
+      if: ${{ github.event.inputs.custom_version != '' }}
+      run: |
+        new_version="${{ github.event.inputs.custom_version }}"
+        
+        # 更新 pyproject.toml
+        sed -i "s/version = \".*\"/version = \"$new_version\"/" pyproject.toml
+        
+        # 更新 __init__.py
+        sed -i "s/__version__ = \".*\"/__version__ = \"$new_version\"/" src/treer_sso_sdk/__init__.py
+        
+        echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
+    
+    - name: 更新版本号 (语义化)
+      if: ${{ github.event.inputs.custom_version == '' }}
+      run: |
+        current_version="${{ steps.current_version.outputs.current_version }}"
+        
+        # 解析版本号
+        IFS='.' read -r major minor patch <<< "$current_version"
+        
+        # 根据类型更新版本号
+        case "${{ github.event.inputs.version_type }}" in
+          major)
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+          minor)
+            minor=$((minor + 1))
+            patch=0
+            ;;
+          patch)
+            patch=$((patch + 1))
+            ;;
+        esac
+        
+        new_version="$major.$minor.$patch"
+        
+        # 更新文件
+        sed -i "s/version = \".*\"/version = \"$new_version\"/" pyproject.toml
+        sed -i "s/__version__ = \".*\"/__version__ = \"$new_version\"/" src/treer_sso_sdk/__init__.py
+        
+        echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
+    
+    - name: 更新CHANGELOG
+      run: |
+        # 创建新的变更日志条目
+        today=$(date +%Y-%m-%d)
+        new_entry="## [$NEW_VERSION] - $today\n\n### Changed\n- 版本更新至 $NEW_VERSION\n"
+        
+        # 在CHANGELOG.md中插入新条目
+        sed -i "/## \[Unreleased\]/a\\n$new_entry" CHANGELOG.md
+    
+    - name: 提交更改
+      run: |
+        git add -A
+        git commit -m "bump: 版本更新至 $NEW_VERSION"
+        git tag "v$NEW_VERSION"
+        git push origin main
+        git push origin "v$NEW_VERSION"
+    
+    - name: 创建Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ env.NEW_VERSION }}
+        name: Release v${{ env.NEW_VERSION }}
+        body: |
+          ## 🚀 Release v${{ env.NEW_VERSION }}
+          
+          ### 更新内容
+          - 版本更新至 ${{ env.NEW_VERSION }}
+          
+          ### 安装
+          ```bash
+          pip install treer-sso-sdk==${{ env.NEW_VERSION }}
+          ```
+          
+          ### 完整变更日志
+          查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) 获取完整的变更历史。
+        draft: false
+        prerelease: false 
