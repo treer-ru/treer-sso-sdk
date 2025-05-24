@@ -17,12 +17,9 @@ maintainers = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-
+    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -30,8 +27,10 @@ classifiers = [
     "Topic :: System :: Systems Administration :: Authentication/Directory",
 ]
 keywords = ["sso", "oauth", "oauth2", "authentication", "treer"]
-requires-python = ">=3.8"
-dependencies = [    "httpx>=0.13.0",]
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.13.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -64,7 +63,7 @@ where = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -86,7 +85,7 @@ multi_line_output = 3
 line_length = 88
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
